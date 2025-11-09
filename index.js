@@ -1,13 +1,15 @@
 const express = require("express"); const { MongoClient, ServerApiVersion } = require("mongodb");
 const cors = require('cors');
+require("dotenv").config();
 const app = express();
+ 
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
 const uri =
-  "mongodb+srv://LocalBite:nesbRiO2TTh5lIIt@basic-project.hymtgk.mongodb.net/?appName=basic-project";
+  `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@basic-project.hymtgk.mongodb.net/?appName=basic-project`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
