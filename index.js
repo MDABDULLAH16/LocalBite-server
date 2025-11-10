@@ -1,15 +1,15 @@
-const express = require("express"); const { MongoClient, ServerApiVersion } = require("mongodb");
-const cors = require('cors');
+const express = require("express");
+const { MongoClient, ServerApiVersion } = require("mongodb");
+const cors = require("cors");
 require("dotenv").config();
 const app = express();
- 
+
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-const uri =
-  `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@basic-project.hymtgk.mongodb.net/?appName=basic-project`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@basic-project.hymtgk.mongodb.net/?appName=basic-project`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -26,29 +26,78 @@ app.get("/", (req, res) => {
 
 async function run() {
   try {
-      // Connect the client to the server	(optional starting in v4.7)
-      await client.connect();
+    // Connect the client to the server	(optional starting in v4.7)
+    await client.connect();
 
-      const localBiteDB = client.db('LocalBiteDB');
-      const reviewCollection = localBiteDB.collection('reviews');
-      const userCollection = localBiteDB.collection('users');
+    const localBiteDB = client.db("LocalBiteDB");
+    const reviewCollection = localBiteDB.collection("reviews");
+    const userCollection = localBiteDB.collection("users");
 
-      ///reviews apis;
-      app.post('/reviews', async (req, res) => {
-          const newReview = req.body;
-          const result = await reviewCollection.insertOne(newReview);
-          res.send(result);
-      });
-      app.get('/reviews', async (req, res) => {
-          const email = req.query.email;
-          const query = {};
-          if (email) {
-              query.userEmail = email;
-          }
-          const cursor = reviewCollection.find(query);
-          const result = await cursor.toArray();
-          res.send(result)
-      })
+    //user apis ;
+    app.post("/users", async (req, res) => {
+      try {
+        const newUser = req.body;
+        // Check if the user already exists
+        const existingUser = await userCollection.findOne({
+          email: newUser.email,
+        });
+        if (existingUser) {
+          return res.status(409).json({
+            success: false,
+            message: "User already exists. Please login instead.",
+          });
+        }
+
+        // Insert new user
+        const result = await userCollection.insertOne(newUser);
+        // Respond with success
+        return res.status(201).json({
+          success: true,
+          message: "User registered successfully.",
+          user: result,
+        });
+      } catch (error) {
+        console.error("Error creating user:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Internal server error.",
+        });
+      }
+    });
+
+    // POST /reviews
+    app.post("/reviews", async (req, res) => {
+      try {
+        const newReview = {
+          ...req.body,
+          createdAt: new Date(), // Automatically add current date
+        };
+
+        const result = await reviewCollection.insertOne(newReview);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to add review" });
+      }
+    });
+
+    // GET /reviews
+    app.get("/reviews", async (req, res) => {
+      try {
+        const email = req.query.email;
+        const query = {};
+        if (email) {
+          query.userEmail = email;
+        }
+
+        const cursor = reviewCollection.find(query).sort({ createdAt: -1 }); // Sort by newest first
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to fetch reviews" });
+      }
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -61,8 +110,6 @@ async function run() {
   }
 }
 run().catch(console.dir);
-
-
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
