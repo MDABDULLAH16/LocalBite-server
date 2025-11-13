@@ -32,6 +32,7 @@ async function run() {
     const localBiteDB = client.db("LocalBiteDB");
     const reviewCollection = localBiteDB.collection("reviews");
     const userCollection = localBiteDB.collection("users");
+    const favoriteReviewCollection = localBiteDB.collection('favorites')
 
     //user apis ;
     app.post("/users", async (req, res) => {
@@ -65,6 +66,25 @@ async function run() {
       }
     });
 
+    //favorites apis:
+    app.post("/myFavorites", async (req, res) => {
+      const favorites = req.body;
+      const result = await favoriteReviewCollection.insertOne(favorites);
+      res.send(result);
+    });
+    app.get("/myFavorites", async (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.userEmail=email
+        const cursor = favoriteReviewCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result)
+      } else {
+        return res.send({message:"user NOt found"})
+      }
+    });
+
     // POST /reviews
     app.post("/reviews", async (req, res) => {
       try {
@@ -80,7 +100,6 @@ async function run() {
         res.status(500).send({ message: "Failed to add review" });
       }
     });
-
     // GET /reviews
     app.get("/reviews", async (req, res) => {
       try {
@@ -105,6 +124,7 @@ async function run() {
       const result = await reviewCollection.findOne(query);
       res.send(result);
     });
+    //update review;
     app.patch("/reviews/:id", async (req, res) => {
       const id = req.params.id;
       if (!ObjectId.isValid(id)) {
