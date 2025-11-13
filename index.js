@@ -187,7 +187,9 @@ async function run() {
       const result = await reviewCollection.deleteOne(query);
       res.send(result);
     });
-
+app.use((req, res, next) => {
+  res.status(404).json({ message: "Route not found" });
+});
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
