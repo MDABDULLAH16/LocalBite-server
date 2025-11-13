@@ -69,6 +69,13 @@ async function run() {
     //favorites apis:
     app.post("/myFavorites", async (req, res) => {
       const favorites = req.body;
+      const existingReview = await favoriteReviewCollection.findOne({ reviewId: favorites.reviewId });
+      if (existingReview) {
+        return res.status(409).json({
+          success: false,
+          message: "this review already exists. Please select another.",
+        });
+      }
       const result = await favoriteReviewCollection.insertOne(favorites);
       res.send(result);
     });
@@ -91,6 +98,7 @@ async function run() {
         const newReview = {
           ...req.body,
           createdAt: new Date(), // Automatically add current date
+          isFavorite:false
         };
 
         const result = await reviewCollection.insertOne(newReview);
