@@ -32,7 +32,7 @@ async function run() {
     const localBiteDB = client.db("LocalBiteDB");
     const reviewCollection = localBiteDB.collection("reviews");
     const userCollection = localBiteDB.collection("users");
-    const favoriteReviewCollection = localBiteDB.collection('favorites')
+    const favoriteReviewCollection = localBiteDB.collection("favorites");
 
     //user apis ;
     app.post("/users", async (req, res) => {
@@ -69,7 +69,9 @@ async function run() {
     //favorites apis:
     app.post("/myFavorites", async (req, res) => {
       const favorites = req.body;
-      const existingReview = await favoriteReviewCollection.findOne({ reviewId: favorites.reviewId });
+      const existingReview = await favoriteReviewCollection.findOne({
+        reviewId: favorites.reviewId,
+      });
       if (existingReview) {
         return res.status(409).json({
           success: false,
@@ -83,12 +85,12 @@ async function run() {
       const email = req.query.email;
       const query = {};
       if (email) {
-        query.userEmail=email
+        query.userEmail = email;
         const cursor = favoriteReviewCollection.find(query);
         const result = await cursor.toArray();
-        res.send(result)
+        res.send(result);
       } else {
-        return res.send({message:"user NOt found"})
+        return res.send({ message: "user NOt found" });
       }
     });
     app.delete("/myFavorites/:id", async (req, res) => {
@@ -104,7 +106,7 @@ async function run() {
         const newReview = {
           ...req.body,
           createdAt: new Date(), // Automatically add current date
-          isFavorite:false
+          isFavorite: false,
         };
 
         const result = await reviewCollection.insertOne(newReview);
@@ -115,22 +117,37 @@ async function run() {
       }
     });
     // GET /reviews
-    app.get("/reviews", async (req, res) => {
-      try {
-        const email = req.query.email;
-        const query = {};
-        if (email) {
-          query.userEmail = email;
-        }
+   app.get("/reviews", async (req, res) => {
+     try {
+       const { email, search } = req.query;
+       const query = {};
+       // Filter by email if provided
+       if (email) {
+         query.userEmail = email;
+       }
 
-        const cursor = reviewCollection.find(query).sort({ createdAt: -1 }); // Sort by newest first
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to fetch reviews" });
-      }
+       // Search by foodName if provided
+       if (search && search.trim().length > 0) {
+         query.foodName = { $regex: search.trim(), $options: "i" }; // case-insensitive
+       }
+
+       const cursor = reviewCollection.find(query).sort({ createdAt: -1 }); // newest first
+       const result = await cursor.toArray();
+
+       res.send(result);
+     } catch (error) {
+       console.error("Failed to fetch reviews:", error);
+       res.status(500).send({ message: "Failed to fetch reviews" });
+     }
+   });
+
+    // GET /reviews - search by foodName
+    app.get("/reviews", async (req, res) => {
+      const foodName = req.query.q;
+      console.log(foodName);
+      
     });
+
     // get single review
     app.get("/reviews/:id", async (req, res) => {
       const id = req.params.id;
