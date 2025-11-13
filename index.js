@@ -91,6 +91,12 @@ async function run() {
         return res.send({message:"user NOt found"})
       }
     });
+    app.delete("/myFavorites/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { reviewId: id };
+      const result = await favoriteReviewCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // POST /reviews
     app.post("/reviews", async (req, res) => {
