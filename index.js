@@ -98,20 +98,44 @@ async function run() {
         res.status(500).send({ message: "Failed to fetch reviews" });
       }
     });
-    // get single review 
-    app.get('/reviews/:id', async (req, res) => {
+    // get single review
+    app.get("/reviews/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await reviewCollection.findOne(query)
-      res.send(result)
-    })
+      const result = await reviewCollection.findOne(query);
+      res.send(result);
+    });
+    app.patch("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: "Invalid review ID" });
+      }
+      const updatedReview = req.body;
+      const updateDoc = {
+        $set: {
+          foodName: updatedReview.foodName,
+          restaurantName: updatedReview.restaurantName,
+          location: updatedReview.location,
+          ratings: updatedReview.ratings,
+          description: updatedReview.description,
+          foodImage: updatedReview.foodImage, // optional if included
+        },
+      };
+      const result = await reviewCollection.updateOne(
+        {
+          _id: new ObjectId(id),
+        },
+        updateDoc
+      );
+      res.send(result);
+    });
     //delete review
-    app.delete('/reviews/:id', async (req, res) => {
+    app.delete("/reviews/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await reviewCollection.deleteOne(query);
-      res.send(result)
-    })
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
