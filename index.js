@@ -2,13 +2,19 @@ const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 require("dotenv").config();
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./localbite-firebase-adminsdk.json");
+
 const app = express();
 
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@basic-project.hymtgk.mongodb.net/?appName=basic-project`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -20,6 +26,22 @@ const client = new MongoClient(uri, {
   },
 });
 
+
+const verifyFBToken = async (req, res, next) => {
+  const token = req.headers?.authorization;
+  
+  if (!token) {
+    res.status(401).send({ message: "Unauthorized access" });
+  }
+  try {
+    const idToken = token.split(" ")[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    req.decoded_email = decoded.email;
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+};
 app.get("/", (req, res) => {
   res.send("Welcome To LocalBite");
 });
@@ -27,17 +49,28 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const localBiteDB = client.db("LocalBiteDB");
     const reviewCollection = localBiteDB.collection("reviews");
     const userCollection = localBiteDB.collection("users");
     const favoriteReviewCollection = localBiteDB.collection("favorites");
 
+    //verify admin 
+      const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded_email;
+      // console.log(email);
+
+      const user = await userCollection.findOne({ email });
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
     //user apis ;
     app.post("/users", async (req, res) => {
       try {
-        const newUser = req.body;
+        const newUser = {role:'user',...req.body};
         // Check if the user already exists
         const existingUser = await userCollection.findOne({
           email: newUser.email,
@@ -65,6 +98,13 @@ async function run() {
         });
       }
     });
+    //get the user role;
+    app.get('/users', async (req, res) => {
+      const email = req.query.email;
+      const userEmail = { email: email };
+      const result = await userCollection.findOne(userEmail);
+      res.send({result})
+    })
 
     //favorites apis:
     app.post("/myFavorites", async (req, res) => {
@@ -120,19 +160,24 @@ async function run() {
    app.get("/reviews", async (req, res) => {
      try {
        const { email, search } = req.query;
+
        const query = {};
-       // Filter by email if provided
-       if (email) {
-         query.userEmail = email;
+
+       // get by user email
+       if (email && email.trim() !== "") {
+         query.userEmail = email.trim();
        }
 
-       // Search by foodName if provided
-       if (search && search.trim().length > 0) {
-         query.foodName = { $regex: search.trim(), $options: "i" }; // case-insensitive
+       //  foodName (case-insensitive)
+       if (search && search.trim() !== "") {
+         query.foodName = { $regex: search.trim(), $options: "i" };
        }
 
-       const cursor = reviewCollection.find(query).sort({ createdAt: -1 }); // newest first
-       const result = await cursor.toArray();
+       //  newest first
+       const result = await reviewCollection
+         .find(query)
+         .sort({ createdAt: -1 })
+         .toArray();
 
        res.send(result);
      } catch (error) {
@@ -141,12 +186,6 @@ async function run() {
      }
    });
 
-    // GET /reviews - search by foodName
-    app.get("/reviews", async (req, res) => {
-      const foodName = req.query.q;
-      console.log(foodName);
-      
-    });
 
     // get single review
     app.get("/reviews/:id", async (req, res) => {
@@ -187,11 +226,11 @@ async function run() {
       const result = await reviewCollection.deleteOne(query);
       res.send(result);
     });
-app.use((req, res, next) => {
-  res.status(404).json({ message: "Route not found" });
-});
+    
+
+  
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
@@ -205,3 +244,4 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
+ 
